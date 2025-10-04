@@ -232,13 +232,14 @@ def opensolar_webhook():
                 client_data, project_full_data, action_info
             )
         
-        # Enviar email
+        # Enviar email usando Gmail SMTP
         try:
-            success = notification_service.send_email(
-                to_email=client_data["email"],
+            success = gmail_service.send_email_with_retry(
+                to=client_data["email"],
                 subject=email_content["subject"],
                 html_body=email_content["html"],
-                text_body=email_content["text"]
+                plain_body=email_content["text"],
+                max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
             )
             
             if success:
