@@ -5,6 +5,7 @@ Servicio de lógica de notificaciones
 import logging
 from typing import Dict, List, Optional
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from datetime import datetime
 import os
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,36 @@ class NotificationService:
             autoescape=select_autoescape(['html', 'xml'])
         )
     
+    def _format_completion_date(self, date_str: str) -> str:
+        """
+        Formatear fecha de completación desde string ISO a formato legible
+        
+        Args:
+            date_str: Fecha en formato ISO string (ej: "2025-10-04T21:34:27.540111Z")
+            
+        Returns:
+            Fecha formateada (ej: "04 de Octubre de 2025") o string vacío si hay error
+        """
+        if not date_str:
+            return ''
+        
+        try:
+            # Parsear fecha ISO
+            date_str_clean = date_str.replace('Z', '+00:00')
+            date_obj = datetime.fromisoformat(date_str_clean)
+            
+            # Formatear en español
+            meses = {
+                1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+                5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+                9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+            }
+            
+            return f"{date_obj.day:02d} de {meses[date_obj.month]} de {date_obj.year}"
+        except Exception as e:
+            logger.warning(f"Error al formatear fecha '{date_str}': {e}")
+            return date_str  # Devolver la fecha original si hay error
+    
     def generate_first_notification_email(self, client_data: Dict, 
                                          project_data: Dict,
                                          action_data: Dict) -> Dict:
@@ -38,31 +69,27 @@ class NotificationService:
         Generar email de primera notificación (pago de cuota inicial)
         
         Args:
-            client_data: Datos del cliente
-            project_data: Datos del proyecto
+            client_data: Datos del cliente (nombre, email, teléfono)
+            project_data: Datos del proyecto (ID, título, dirección)
             action_data: Datos de la acción completada
             
         Returns:
-            Diccionario con subject, html_body y plain_body
+            Dict con subject, html y text del email
         """
-        # Obtener descripción de la acción
-        action_info = self._get_action_info(action_data['action']['title'])
+        # Obtener información de la acción
+        action_info = self._get_action_info(action_data)
         
-        # Datos para el template
-        # Obtener solo el número del ID (sin prefijo GHP-)
-        project_id_raw = project_data.get('identifier', str(project_data.get('id')))
-        project_id = project_id_raw.replace('GHP-', '').replace('ghp-', '') if isinstance(project_id_raw, str) else str(project_data.get('id'))
-        
+        # Preparar datos para el template
         template_data = {
-            'client_name': client_data.get('first_name', client_data.get('full_name', 'Cliente')),
-            'project_id': project_id,
-            'project_title': project_data.get('title', 'Tu Proyecto Solar'),
+            'client_name': client_data.get('name', 'Cliente'),
+            'project_id': project_data.get('id', ''),
+            'project_title': project_data.get('title', ''),
             'project_address': project_data.get('address', ''),
             'action_title': action_info['title'],
             'action_description': action_info['description'],
             'next_steps': action_info['next_steps'],
             'portal_url': self.client_portal_url,
-            'completion_date': action_data.get('completion_date', '').strftime('%d de %B de %Y') if action_data.get('completion_date') else '',
+            'completion_date': self._format_completion_date(action_data.get('completion_date', '')),
             'year': '2025'
         }
         
@@ -70,16 +97,16 @@ class NotificationService:
         template = self.jinja_env.get_template('email_first_notification.html')
         html_body = template.render(**template_data)
         
-        # Generar versión en texto plano
-        plain_body = self._generate_plain_text_first_notification(template_data)
+        # Generar versión texto plano
+        text_body = self._generate_text_version(template_data, is_first=True)
         
-        # Asunto
+        # Generar asunto
         subject = f"¡Bienvenido a Green House Project! - Acceso a tu Portal de Cliente"
         
         return {
             'subject': subject,
             'html': html_body,
-            'plain': plain_body
+            'text': text_body
         }
     
     def generate_progress_update_email(self, client_data: Dict,
@@ -94,26 +121,22 @@ class NotificationService:
             action_data: Datos de la acción completada
             
         Returns:
-            Diccionario con subject, html_body y plain_body
+            Dict con subject, html y text del email
         """
-        # Obtener descripción de la acción
-        action_info = self._get_action_info(action_data['action']['title'])
+        # Obtener información de la acción
+        action_info = self._get_action_info(action_data)
         
-        # Datos para el template
-        # Obtener solo el número del ID (sin prefijo GHP-)
-        project_id_raw = project_data.get('identifier', str(project_data.get('id')))
-        project_id = project_id_raw.replace('GHP-', '').replace('ghp-', '') if isinstance(project_id_raw, str) else str(project_data.get('id'))
-        
+        # Preparar datos para el template
         template_data = {
-            'client_name': client_data.get('first_name', client_data.get('full_name', 'Cliente')),
-            'project_id': project_id,
-            'project_title': project_data.get('title', 'Tu Proyecto Solar'),
+            'client_name': client_data.get('name', 'Cliente'),
+            'project_id': project_data.get('id', ''),
+            'project_title': project_data.get('title', ''),
             'project_address': project_data.get('address', ''),
             'action_title': action_info['title'],
             'action_description': action_info['description'],
             'next_steps': action_info['next_steps'],
             'portal_url': self.client_portal_url,
-            'completion_date': action_data.get('completion_date', '').strftime('%d de %B de %Y') if action_data.get('completion_date') else '',
+            'completion_date': self._format_completion_date(action_data.get('completion_date', '')),
             'year': '2025'
         }
         
@@ -121,105 +144,140 @@ class NotificationService:
         template = self.jinja_env.get_template('email_progress_update.html')
         html_body = template.render(**template_data)
         
-        # Generar versión en texto plano
-        plain_body = self._generate_plain_text_progress_update(template_data)
+        # Generar versión texto plano
+        text_body = self._generate_text_version(template_data, is_first=False)
         
-        # Asunto
+        # Generar asunto
         subject = f"Actualización de tu Proyecto Solar - {action_info['title']}"
         
         return {
             'subject': subject,
             'html': html_body,
-            'plain': plain_body
+            'text': text_body
         }
     
-    def _get_action_info(self, action_title: str) -> Dict:
-        """Obtener información de una acción"""
-        action_key = action_title.lower().strip()
+    def _get_action_info(self, action_data: Dict) -> Dict:
+        """
+        Obtener información detallada de una acción
         
-        # Buscar coincidencia
-        for key, info in self.action_descriptions.items():
-            if key in action_key or action_key in key:
-                return info
+        Args:
+            action_data: Datos de la acción
+            
+        Returns:
+            Dict con title, description y next_steps
+        """
+        action = action_data.get('action', {})
+        action_title = action.get('title', 'Acción completada')
         
-        # Descripción genérica
+        # Buscar descripción en el mapeo
+        action_desc_data = self.action_descriptions.get(
+            action_title,
+            self.action_descriptions.get('default', {})
+        )
+        
         return {
-            'title': f'Actualización: {action_title}',
-            'description': f'Se ha completado la acción "{action_title}" en tu proyecto solar.',
-            'next_steps': 'Nuestro equipo continuará trabajando en las siguientes etapas del proyecto.'
+            'title': action_title,
+            'description': action_desc_data.get('description', 'Se ha completado una nueva etapa de tu proyecto solar.'),
+            'next_steps': action_desc_data.get('next_steps', 'Nuestro equipo se pondrá en contacto contigo pronto.')
         }
     
-    def _generate_plain_text_first_notification(self, data: Dict) -> str:
-        """Generar versión en texto plano del email de primera notificación"""
-        return f"""
-¡Hola {data['client_name']}!
+    def _generate_text_version(self, data: Dict, is_first: bool = False) -> str:
+        """
+        Generar versión texto plano del email
+        
+        Args:
+            data: Datos del template
+            is_first: Si es la primera notificación
+            
+        Returns:
+            Texto plano del email
+        """
+        if is_first:
+            return f"""
+¡Hola, {data['client_name']}!
 
-{data['action_title']}
+Te damos una calurosa bienvenida a la familia Green House Project. Estamos muy emocionados de acompañarte en tu transición hacia un futuro más sostenible con energía solar.
 
-{data['action_description']}
+PAGO DE CUOTA INICIAL RECIBIDO
+
+Hemos recibido exitosamente el pago de tu cuota inicial. Tu proyecto solar está oficialmente en marcha.
+
+Fecha de completación: {data['completion_date']}
 
 ACCESO A TU PORTAL DE CLIENTE
 
-Ahora puedes consultar el estado de tu proyecto en cualquier momento desde nuestro portal de clientes:
+Hemos creado un portal exclusivo para que puedas seguir cada paso de tu proyecto. Para acceder, necesitarás el siguiente ID:
 
-URL: {data['portal_url']}
-ID de tu proyecto: {data['project_id']}
+ID del Proyecto: {data['project_id']}
 
-Cómo acceder:
-1. Ingresa a {data['portal_url']}
-2. Introduce el ID de tu proyecto: {data['project_id']}
-3. Consulta el estado y detalles de tu instalación solar
-
-PRÓXIMOS PASOS
-
-{data['next_steps']}
+Visita: {data['portal_url']}
 
 INFORMACIÓN DE TU PROYECTO
 
 Proyecto: {data['project_title']}
 Dirección: {data['project_address']}
-ID: {data['project_id']}
 
-¿Tienes preguntas? Estamos aquí para ayudarte. Responde a este email o contáctanos directamente.
+PRÓXIMOS PASOS
 
-Saludos cordiales,
+{data['next_steps']}
+
+Si tienes alguna pregunta, no dudes en contactarnos.
+
+¡Gracias por confiar en Green House Project!
+
 Equipo Green House Project
+Revoluciona el concepto de vivir
 
----
-Este es un mensaje automático del sistema de notificaciones de Green House Project.
 © {data['year']} Green House Project. Todos los derechos reservados.
-        """.strip()
-    
-    def _generate_plain_text_progress_update(self, data: Dict) -> str:
-        """Generar versión en texto plano del email de actualización de progreso"""
-        return f"""
-¡Hola {data['client_name']}!
+"""
+        else:
+            return f"""
+¡Hola, {data['client_name']}!
 
-{data['action_title']}
+Tu proyecto solar sigue avanzando. Te informamos que se ha completado una nueva etapa:
+
+{data['action_title'].upper()}
 
 {data['action_description']}
 
-PRÓXIMOS PASOS
-
-{data['next_steps']}
-
-CONSULTA MÁS DETALLES
-
-Puedes ver información completa de tu proyecto en nuestro portal de clientes:
-{data['portal_url']}
+Fecha de completación: {data['completion_date']}
 
 INFORMACIÓN DE TU PROYECTO
 
 Proyecto: {data['project_title']}
 Dirección: {data['project_address']}
-ID: {data['project_id']}
+ID del Proyecto: {data['project_id']}
 
-¿Tienes preguntas? Estamos aquí para ayudarte. Responde a este email o contáctanos directamente.
+PRÓXIMOS PASOS
 
-Saludos cordiales,
+{data['next_steps']}
+
+Puedes consultar el estado completo de tu proyecto en: {data['portal_url']}
+
+Si tienes alguna pregunta, no dudes en contactarnos.
+
+¡Gracias por confiar en Green House Project!
+
 Equipo Green House Project
+Revoluciona el concepto de vivir
 
----
-Este es un mensaje automático del sistema de notificaciones de Green House Project.
 © {data['year']} Green House Project. Todos los derechos reservados.
-        """.strip()
+"""
+    
+    def send_email(self, to_email: str, subject: str, html_body: str, text_body: str) -> bool:
+        """
+        Enviar email (placeholder - debe ser implementado con servicio real)
+        
+        Args:
+            to_email: Email del destinatario
+            subject: Asunto del email
+            html_body: Cuerpo HTML del email
+            text_body: Cuerpo texto plano del email
+            
+        Returns:
+            True si se envió exitosamente, False en caso contrario
+        """
+        # TODO: Implementar envío real con Gmail API o servicio de email
+        logger.info(f"Email simulado enviado a {to_email}: {subject}")
+        logger.info(f"HTML length: {len(html_body)}, Text length: {len(text_body)}")
+        return True
