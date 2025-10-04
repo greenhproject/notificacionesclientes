@@ -80,21 +80,35 @@ def require_webhook_auth(f):
     """Decorador para proteger el endpoint del webhook"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Intentar obtener el secreto de diferentes headers
+        webhook_secret = request.headers.get("X-Webhook-Secret")
         auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            logger.warning("Webhook: Falta header de autorización")
-            return jsonify({"error": "Authorization header is missing"}), 401
         
-        try:
-            auth_type, token = auth_header.split()
-            if auth_type.lower() != "bearer" or token != config.WEBHOOK_SECRET:
-                logger.warning("Webhook: Token inválido")
-                return jsonify({"error": "Invalid token"}), 403
-        except ValueError:
-            logger.warning("Webhook: Formato de token inválido")
-            return jsonify({"error": "Invalid token format"}), 401
+        # Validar con X-Webhook-Secret (OpenSolar)
+        if webhook_secret:
+            if webhook_secret == config.WEBHOOK_SECRET:
+                return f(*args, **kwargs)
+            else:
+                logger.warning("Webhook: Secreto inválido en X-Webhook-Secret")
+                return jsonify({"error": "Invalid webhook secret"}), 401
         
-        return f(*args, **kwargs)
+        # Validar con Authorization Bearer (alternativo)
+        if auth_header:
+            try:
+                auth_type, token = auth_header.split()
+                if auth_type.lower() == "bearer" and token == config.WEBHOOK_SECRET:
+                    return f(*args, **kwargs)
+                else:
+                    logger.warning("Webhook: Token inválido")
+                    return jsonify({"error": "Invalid token"}), 403
+            except ValueError:
+                logger.warning("Webhook: Formato de token inválido")
+                return jsonify({"error": "Invalid token format"}), 401
+        
+        # Si no hay ningún header de autenticación
+        logger.warning("Webhook: Falta header de autorización")
+        return jsonify({"error": "Authorization header is missing"}), 401
+        
     return decorated_function
 
 # ---------------------------------------------------------------------------
