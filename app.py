@@ -13,7 +13,8 @@ from functools import wraps
 # Módulos del proyecto
 from config import get_config
 from database import Database, Notification
-from services import OpenSolarService, GmailService, NotificationService
+from services import OpenSolarService, NotificationService
+from services.resend_service import ResendService
 
 # ---------------------------------------------------------------------------
 # Configuración de Logging
@@ -59,10 +60,8 @@ opensolar_service = OpenSolarService(
     base_url=config.OPENSOLAR_API_BASE
 )
 
-gmail_service = GmailService(
-    from_email=config.GMAIL_FROM_EMAIL,
-    from_name=config.GMAIL_FROM_NAME,
-    smtp_password=config.GMAIL_SMTP_PASSWORD
+resend_service = ResendService(
+    api_key=config.RESEND_API_KEY
 )
 
 notification_service = NotificationService(
@@ -232,13 +231,13 @@ def opensolar_webhook():
                 client_data, project_full_data, action_info
             )
         
-        # Enviar email usando Gmail SMTP
+        # Enviar email usando Resend API
         try:
-            success = gmail_service.send_email_with_retry(
-                to=client_data["email"],
+            success = resend_service.send_email_with_retry(
+                to_email=client_data["email"],
                 subject=email_content["subject"],
-                html_body=email_content["html"],
-                plain_body=email_content["text"],
+                html_content=email_content["html"],
+                from_email="onboarding@resend.dev",
                 max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
             )
             
@@ -332,11 +331,11 @@ def opensolar_webhook():
             continue
         
         # 5. Enviar email
-        success = gmail_service.send_email_with_retry(
-            to=client_data["email"],
+        success = resend_service.send_email_with_retry(
+            to_email=client_data["email"],
             subject=email_content["subject"],
-            html_body=email_content["html"],
-            plain_body=email_content["plain"],
+            html_content=email_content["html"],
+            from_email="onboarding@resend.dev",
             max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
         )
         

@@ -27,7 +27,10 @@ class Config:
     WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', 'dev-webhook-secret')
     WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'http://localhost:5000/webhook/opensolar')
     
-    # Gmail SMTP
+    # Resend API
+    RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+    
+    # Gmail SMTP (deprecated - usando Resend)
     GMAIL_SMTP_PASSWORD = os.getenv('GMAIL_SMTP_PASSWORD', '')
     GMAIL_FROM_EMAIL = 'admin@greenhproject.com'
     GMAIL_FROM_NAME = 'Green House Project'
