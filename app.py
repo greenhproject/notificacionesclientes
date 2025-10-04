@@ -41,9 +41,16 @@ config = get_config()
 app = Flask(__name__)
 app.config.from_object(config)
 
-# Inicializar base de datos
-db = Database(config.DATABASE_URL)
-notification_model = Notification(db)
+# Inicializar base de datos (opcional - solo si DATABASE_URL está configurada)
+try:
+    db = Database(config.DATABASE_URL)
+    notification_model = Notification(db)
+    logger.info("Base de datos inicializada correctamente")
+except Exception as e:
+    logger.warning(f"No se pudo inicializar la base de datos: {e}")
+    logger.warning("La aplicación funcionará sin persistencia de notificaciones")
+    db = None
+    notification_model = None
 
 # Inicializar servicios
 opensolar_service = OpenSolarService(
@@ -150,7 +157,7 @@ def opensolar_webhook():
         return jsonify({"error": "Client contact data or email is missing"}), 400
     
     # 3. Verificar si es la primera notificación para este proyecto
-    is_first_notification_for_project = notification_model.check_if_first_notification(project_id)
+    is_first_notification_for_project = notification_model.check_if_first_notification(project_id) if notification_model else True
     
     notifications_sent = 0
     
@@ -161,7 +168,7 @@ def opensolar_webhook():
         action_title = action["title"]
         
         # Verificar si ya notificamos esta acción
-        if notification_model.check_if_notified(project_id, action_id):
+        if notification_model and notification_model.check_if_notified(project_id, action_id):
             logger.info(f"Proyecto {project_id}, Acción {action_id}: Ya notificada, omitiendo")
             continue
         
@@ -183,7 +190,7 @@ def opensolar_webhook():
             is_first_notification_for_project = False # Para no repetir en el mismo webhook
         
         # Generar email de actualización de progreso (si no es la primera)
-        elif not notification_model.check_if_first_notification(project_id):
+        elif not notification_model or not notification_model.check_if_first_notification(project_id):
             logger.info(f"Proyecto {project_id}: Generando actualización de progreso")
             email_content = notification_service.generate_progress_update_email(
                 client_data, project_data, action_info
@@ -203,25 +210,26 @@ def opensolar_webhook():
             max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
         )
         
-        # 6. Registrar notificación en la base de datos
-        status = "sent" if success else "failed"
-        error_message = None if success else "Failed to send email after retries"
-        
-        notification_model.create(
-            project_id=project_id,
-            project_identifier=project_data.get("identifier"),
-            project_title=project_data.get("title"),
-            action_id=action_id,
-            action_title=action_title,
-            recipient_email=client_data["email"],
-            recipient_name=client_data.get("full_name"),
-            email_type=email_type,
-            email_subject=email_content["subject"],
-            email_body=email_content["html"],
-            webhook_data=webhook_data,
-            status=status,
-            error_message=error_message
-        )
+        # 6. Registrar notificación en la base de datos (si está disponible)
+        if notification_model:
+            status = "sent" if success else "failed"
+            error_message = None if success else "Failed to send email after retries"
+            
+            notification_model.create(
+                project_id=project_id,
+                project_identifier=project_data.get("identifier"),
+                project_title=project_data.get("title"),
+                action_id=action_id,
+                action_title=action_title,
+                recipient_email=client_data["email"],
+                recipient_name=client_data.get("full_name"),
+                email_type=email_type,
+                email_subject=email_content["subject"],
+                email_body=email_content["html"],
+                webhook_data=webhook_data,
+                status=status,
+                error_message=error_message
+            )
         
         if success:
             notifications_sent += 1
