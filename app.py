@@ -141,15 +141,19 @@ def opensolar_webhook():
     
     # Log del payload completo para debug
     logger.info(f"Webhook payload completo: {webhook_data}")
-    logger.info(f"Webhook recibido: {webhook_data.get("model")}, {webhook_data.get("action")}")
+    model = webhook_data.get("model")
+    event = webhook_data.get("event")
+    logger.info(f"Webhook recibido: model={model}, event={event}")
     
-    # Solo procesar si es una actualización de proyecto
-    if webhook_data.get("model") != "project" or webhook_data.get("action") != "update":
-        return jsonify({"status": "ignored", "reason": "Not a project update"}), 200
+    # Solo procesar si es una actualización de proyecto (OpenSolar usa "Project" con mayúscula y "event" en lugar de "action")
+    if model != "Project" or event != "UPDATE":
+        logger.info(f"Webhook ignorado: model={model}, event={event}")
+        return jsonify({"status": "ignored", "reason": f"Not a project update (model={model}, event={event})"}), 200
     
-    project_data = webhook_data.get("data", {}).get("project", {})
+    # En el formato de OpenSolar, los datos del proyecto están en "fields"
+    project_data = webhook_data.get("fields", {})
     if not project_data:
-        logger.error("Webhook: No hay datos de proyecto en el payload")
+        logger.error("Webhook: No hay datos de proyecto en el payload (fields)")
         return jsonify({"error": "No project data in payload"}), 400
     
     project_id = project_data.get("id")
