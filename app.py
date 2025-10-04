@@ -139,6 +139,8 @@ def opensolar_webhook():
         logger.error("Webhook: No se recibieron datos JSON")
         return jsonify({"error": "No JSON data received"}), 400
     
+    # Log del payload completo para debug
+    logger.info(f"Webhook payload completo: {webhook_data}")
     logger.info(f"Webhook recibido: {webhook_data.get("model")}, {webhook_data.get("action")}")
     
     # Solo procesar si es una actualización de proyecto
