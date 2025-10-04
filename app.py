@@ -145,19 +145,125 @@ def opensolar_webhook():
     event = webhook_data.get("event")
     logger.info(f"Webhook recibido: model={model}, event={event}")
     
-    # Solo procesar si es una actualización de proyecto (OpenSolar usa "Project" con mayúscula y "event" en lugar de "action")
-    if model != "Project" or event != "UPDATE":
-        logger.info(f"Webhook ignorado: model={model}, event={event}")
-        return jsonify({"status": "ignored", "reason": f"Not a project update (model={model}, event={event})"}), 200
+    # Procesar eventos de tipo "Event" con acción "CREATE" (cuando se marca una acción como completada)
+    if model == "Event" and event == "CREATE":
+        logger.info(f"Procesando evento de tipo Event/CREATE")
+        
+        # Los datos del evento están en "fields"
+        event_data = webhook_data.get("fields", {})
+        if not event_data:
+            logger.error("Webhook: No hay datos de evento en el payload (fields)")
+            return jsonify({"error": "No event data in payload"}), 400
+        
+        # Verificar que el evento esté completado
+        is_complete = event_data.get("is_complete", False)
+        if not is_complete:
+            logger.info("Webhook ignorado: Evento no está completado")
+            return jsonify({"status": "ignored", "reason": "Event not complete"}), 200
+        
+        # Obtener información del proyecto
+        project_data_ref = event_data.get("project_data", {})
+        project_id = project_data_ref.get("id")
+        
+        if not project_id:
+            logger.error("Webhook: No se encontró ID de proyecto en el evento")
+            return jsonify({"error": "No project ID in event"}), 400
+        
+        logger.info(f"Procesando evento completado para proyecto ID: {project_id}")
+        
+        # Obtener datos completos del proyecto desde OpenSolar API
+        try:
+            project_full_data = opensolar_service.get_project(project_id)
+            if not project_full_data:
+                logger.error(f"No se pudo obtener datos del proyecto {project_id}")
+                return jsonify({"error": "Could not fetch project data"}), 500
+        except Exception as e:
+            logger.error(f"Error al obtener proyecto {project_id}: {str(e)}")
+            return jsonify({"error": f"Error fetching project: {str(e)}"}), 500
+        
+        # Extraer datos del cliente
+        client_data = opensolar_service.extract_client_data(project_full_data)
+        if not client_data or not client_data.get("email"):
+            logger.error(f"Proyecto {project_id}: No se encontraron datos de contacto o email del cliente")
+            return jsonify({"error": "Client contact data or email is missing"}), 400
+        
+        # Obtener información de la acción completada
+        action_title = event_data.get("title", "Acción")
+        action_url = event_data.get("action", "")
+        completion_date = event_data.get("completion_date")
+        
+        # Construir objeto de acción simulado para compatibilidad
+        action_info = {
+            "action": {
+                "id": event_data.get("id"),
+                "title": action_title,
+                "url": action_url
+            },
+            "event": {
+                "is_complete": True,
+                "completion_date": completion_date
+            },
+            "completion_date": completion_date
+        }
+        
+        # Verificar si es la primera notificación para este proyecto
+        is_first_notification_for_project = notification_model.check_if_first_notification(project_id) if notification_model else True
+        
+        # Determinar si es la acción que dispara la primera notificación
+        is_trigger_action = opensolar_service.is_initial_payment_action(
+            action_info["action"], config.TRIGGER_ACTIONS
+        )
+        
+        email_content = None
+        email_type = "progress_update"
+        
+        # Generar email de primera notificación
+        if is_first_notification_for_project and is_trigger_action:
+            logger.info(f"Proyecto {project_id}: Generando primera notificación")
+            email_content = notification_service.generate_first_notification_email(
+                client_data, project_full_data, action_info
+            )
+            email_type = "first_notification"
+        else:
+            # Generar email de actualización de progreso
+            logger.info(f"Proyecto {project_id}: Generando notificación de progreso")
+            email_content = notification_service.generate_progress_update_email(
+                client_data, project_full_data, action_info
+            )
+        
+        # Enviar email
+        try:
+            success = notification_service.send_email(
+                to_email=client_data["email"],
+                subject=email_content["subject"],
+                html_body=email_content["html"],
+                text_body=email_content["text"]
+            )
+            
+            if success:
+                logger.info(f"Email enviado exitosamente a {client_data['email']}")
+                
+                # Registrar notificación en la base de datos
+                if notification_model:
+                    notification_model.log_notification(
+                        project_id=project_id,
+                        action_id=action_info["action"]["id"],
+                        email=client_data["email"],
+                        notification_type=email_type
+                    )
+                
+                return jsonify({"status": "success", "email_sent": True}), 200
+            else:
+                logger.error(f"Error al enviar email a {client_data['email']}")
+                return jsonify({"status": "error", "message": "Failed to send email"}), 500
+                
+        except Exception as e:
+            logger.error(f"Error al procesar notificación: {str(e)}")
+            return jsonify({"status": "error", "message": str(e)}), 500
     
-    # En el formato de OpenSolar, los datos del proyecto están en "fields"
-    project_data = webhook_data.get("fields", {})
-    if not project_data:
-        logger.error("Webhook: No hay datos de proyecto en el payload (fields)")
-        return jsonify({"error": "No project data in payload"}), 400
-    
-    project_id = project_data.get("id")
-    logger.info(f"Procesando proyecto ID: {project_id}")
+    # Ignorar otros tipos de webhooks
+    logger.info(f"Webhook ignorado: model={model}, event={event}")
+    return jsonify({"status": "ignored", "reason": f"Not a relevant webhook (model={model}, event={event})"}), 200
     
     # 1. Obtener acciones completadas recientemente
     actions = project_data.get("actions", [])
