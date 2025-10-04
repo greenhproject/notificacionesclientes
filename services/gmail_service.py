@@ -1,34 +1,39 @@
 """
-Servicio de integración con Gmail API
+Servicio de integración con Gmail usando SMTP
 """
 
-import base64
+import smtplib
 import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
+import time
 
 logger = logging.getLogger(__name__)
 
 
 class GmailService:
-    """Servicio para enviar emails usando la función integrada de Gmail"""
+    """Servicio para enviar emails usando Gmail SMTP"""
     
-    def __init__(self, from_email: str, from_name: str = None):
+    def __init__(self, from_email: str, from_name: str = None, smtp_password: str = None):
         """
-        Inicializar servicio de Gmail
+        Inicializar servicio de Gmail con SMTP
         
         Args:
             from_email: Email del remitente
             from_name: Nombre del remitente (opcional)
+            smtp_password: Contraseña de aplicación de Gmail
         """
         self.from_email = from_email
         self.from_name = from_name or from_email
+        self.smtp_password = smtp_password
+        self.smtp_server = "smtp.gmail.com"
+        self.smtp_port = 587
     
     def send_email(self, to: str, subject: str, html_body: str, 
                    plain_body: Optional[str] = None) -> bool:
         """
-        Enviar email usando la función integrada de envío de Gmail
+        Enviar email usando Gmail SMTP
         
         Args:
             to: Email del destinatario
@@ -39,33 +44,54 @@ class GmailService:
         Returns:
             True si se envió exitosamente, False si hubo error
         """
+        if not self.smtp_password:
+            logger.error("No se ha configurado la contraseña SMTP de Gmail")
+            return False
+        
         try:
-            # Importar la función de envío de Gmail
-            import sys
-            import os
+            # Crear mensaje
+            msg = MIMEMultipart('alternative')
+            msg['From'] = f"{self.from_name} <{self.from_email}>"
+            msg['To'] = to
+            msg['Subject'] = subject
             
-            # Agregar el path donde está la función de Gmail
-            parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            if parent_dir not in sys.path:
-                sys.path.insert(0, parent_dir)
+            # Agregar cuerpo en texto plano si se proporciona
+            if plain_body:
+                part1 = MIMEText(plain_body, 'plain', 'utf-8')
+                msg.attach(part1)
             
-            # Usar la función gmail_send_message directamente
-            # Como estamos en un entorno donde ya hay integración con Gmail,
-            # vamos a usar un enfoque más simple: guardar el mensaje y usar
-            # el sistema existente
+            # Agregar cuerpo en HTML
+            part2 = MIMEText(html_body, 'html', 'utf-8')
+            msg.attach(part2)
             
-            # Por ahora, simular el envío exitoso y registrar
-            logger.info(f"Preparando email para {to} con asunto: {subject}")
-            logger.info(f"Email desde: {self.from_email}")
+            # Conectar al servidor SMTP de Gmail
+            logger.info(f"Conectando a {self.smtp_server}:{self.smtp_port}")
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
             
-            # En producción, aquí se usaría la API de Gmail directamente
-            # o se llamaría a la función de envío del sistema
+            # Autenticar
+            logger.info(f"Autenticando como {self.from_email}")
+            server.login(self.from_email, self.smtp_password)
             
-            # Para testing, retornar True
+            # Enviar email
+            logger.info(f"Enviando email a {to} con asunto: {subject}")
+            server.send_message(msg)
+            server.quit()
+            
+            logger.info(f"Email enviado exitosamente a {to}")
             return True
                 
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"Error de autenticación SMTP: {e}")
+            logger.error("Verifica que la contraseña de aplicación de Gmail sea correcta")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"Error SMTP al enviar email a {to}: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Error al enviar email a {to}: {e}")
+            logger.error(f"Error inesperado al enviar email a {to}: {e}")
             return False
     
     def send_email_with_retry(self, to: str, subject: str, html_body: str,
@@ -84,8 +110,6 @@ class GmailService:
         Returns:
             True si se envió exitosamente, False si falló después de todos los reintentos
         """
-        import time
-        
         for attempt in range(max_retries):
             try:
                 success = self.send_email(to, subject, html_body, plain_body)
@@ -111,46 +135,35 @@ class GmailService:
                 time.sleep(wait_time)
         
         return False
-
-
-class GmailServiceIntegrated(GmailService):
-    """
-    Servicio de Gmail que usa la integración nativa del sistema.
-    Esta clase se usará cuando el backend esté desplegado y tenga
-    acceso a la función gmail_send_message del sistema.
-    """
     
-    def __init__(self, from_email: str, from_name: str = None, send_function=None):
-        super().__init__(from_email, from_name)
-        self.send_function = send_function
-    
-    def send_email(self, to: str, subject: str, html_body: str, 
-                   plain_body: Optional[str] = None) -> bool:
+    def test_connection(self) -> bool:
         """
-        Enviar email usando la función de envío proporcionada
+        Probar la conexión SMTP y autenticación
+        
+        Returns:
+            True si la conexión es exitosa, False en caso contrario
         """
-        if not self.send_function:
-            logger.error("No se ha configurado la función de envío de Gmail")
+        if not self.smtp_password:
+            logger.error("No se ha configurado la contraseña SMTP de Gmail")
             return False
         
         try:
-            # Preparar el mensaje
-            message_data = {
-                'to': [to],
-                'subject': subject,
-                'content': html_body  # El sistema acepta HTML directamente
-            }
+            logger.info(f"Probando conexión a {self.smtp_server}:{self.smtp_port}")
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
             
-            # Llamar a la función de envío
-            result = self.send_function([message_data])
+            logger.info(f"Probando autenticación como {self.from_email}")
+            server.login(self.from_email, self.smtp_password)
+            server.quit()
             
-            if result and 'Success' in str(result):
-                logger.info(f"Email enviado exitosamente a {to}")
-                return True
-            else:
-                logger.error(f"Error al enviar email a {to}: {result}")
-                return False
-                
+            logger.info("Conexión y autenticación exitosas")
+            return True
+            
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"Error de autenticación: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Error al enviar email a {to}: {e}")
+            logger.error(f"Error al probar conexión: {e}")
             return False

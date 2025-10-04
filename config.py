@@ -27,10 +27,8 @@ class Config:
     WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', 'dev-webhook-secret')
     WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'http://localhost:5000/webhook/opensolar')
     
-    # Gmail API
-    GMAIL_CLIENT_ID = os.getenv('GMAIL_CLIENT_ID', '')
-    GMAIL_CLIENT_SECRET = os.getenv('GMAIL_CLIENT_SECRET', '')
-    GMAIL_REFRESH_TOKEN = os.getenv('GMAIL_REFRESH_TOKEN', '')
+    # Gmail SMTP
+    GMAIL_SMTP_PASSWORD = os.getenv('GMAIL_SMTP_PASSWORD', '')
     GMAIL_FROM_EMAIL = 'admin@greenhproject.com'
     GMAIL_FROM_NAME = 'Green House Project'
     

@@ -61,7 +61,8 @@ opensolar_service = OpenSolarService(
 
 gmail_service = GmailService(
     from_email=config.GMAIL_FROM_EMAIL,
-    from_name=config.GMAIL_FROM_NAME
+    from_name=config.GMAIL_FROM_NAME,
+    smtp_password=config.GMAIL_SMTP_PASSWORD
 )
 
 notification_service = NotificationService(
