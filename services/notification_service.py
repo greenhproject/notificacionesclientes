@@ -264,20 +264,4 @@ Revoluciona el concepto de vivir
 © {data['year']} Green House Project. Todos los derechos reservados.
 """
     
-    def send_email(self, to_email: str, subject: str, html_body: str, text_body: str) -> bool:
-        """
-        Enviar email (placeholder - debe ser implementado con servicio real)
-        
-        Args:
-            to_email: Email del destinatario
-            subject: Asunto del email
-            html_body: Cuerpo HTML del email
-            text_body: Cuerpo texto plano del email
-            
-        Returns:
-            True si se envió exitosamente, False en caso contrario
-        """
-        # TODO: Implementar envío real con Gmail API o servicio de email
-        logger.info(f"Email simulado enviado a {to_email}: {subject}")
-        logger.info(f"HTML length: {len(html_body)}, Text length: {len(text_body)}")
-        return True
+
