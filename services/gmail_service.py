@@ -64,16 +64,23 @@ class GmailService:
             part2 = MIMEText(html_body, 'html', 'utf-8')
             msg.attach(part2)
             
-            # Conectar al servidor SMTP de Gmail
+            # Conectar al servidor SMTP de Gmail con timeout
             logger.info(f"Conectando a {self.smtp_server}:{self.smtp_port}")
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
             server.ehlo()
+            logger.info("Iniciando TLS...")
             server.starttls()
             server.ehlo()
             
             # Autenticar
             logger.info(f"Autenticando como {self.from_email}")
-            server.login(self.from_email, self.smtp_password)
+            try:
+                server.login(self.from_email, self.smtp_password)
+                logger.info("Autenticación exitosa")
+            except smtplib.SMTPAuthenticationError as auth_err:
+                logger.error(f"Error de autenticación: {auth_err}")
+                logger.error(f"Código de error: {auth_err.smtp_code}, Mensaje: {auth_err.smtp_error}")
+                raise
             
             # Enviar email
             logger.info(f"Enviando email a {to} con asunto: {subject}")
