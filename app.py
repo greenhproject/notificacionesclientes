@@ -86,10 +86,12 @@ def require_webhook_auth(f):
         
         # Validar con X-Webhook-Secret (OpenSolar)
         if webhook_secret:
+            logger.info(f"Webhook: Secreto recibido: '{webhook_secret}' (len={len(webhook_secret)})")
+            logger.info(f"Webhook: Secreto esperado: '{config.WEBHOOK_SECRET}' (len={len(config.WEBHOOK_SECRET)})")
             if webhook_secret == config.WEBHOOK_SECRET:
                 return f(*args, **kwargs)
             else:
-                logger.warning("Webhook: Secreto inválido en X-Webhook-Secret")
+                logger.warning(f"Webhook: Secreto inválido. Recibido: '{webhook_secret}', Esperado: '{config.WEBHOOK_SECRET}'")
                 return jsonify({"error": "Invalid webhook secret"}), 401
         
         # Validar con Authorization Bearer (alternativo)
