@@ -1,0 +1,32 @@
+{% extends "email_base.html" %}
+
+{% block title %}Actualización de tu Proyecto Solar - {{ action_title }}{% endblock %}
+
+{% block header_title %}Nuevo Avance en tu Proyecto{% endblock %}
+
+{% block content %}
+    <h2>¡Hola, {{ client_name }}!</h2>
+    <p>Queremos mantenerte informado sobre cada avance en tu proyecto solar. Hemos completado una nueva etapa:</p>
+
+    <div class="action-box">
+        <h3>{{ action_title }}</h3>
+        <p>{{ action_description }}</p>
+        <p><strong>Fecha de completación:</strong> {{ completion_date }}</p>
+    </div>
+
+    <h3>Próximos Pasos</h3>
+    <p>{{ next_steps }}</p>
+
+    <p>Puedes ver todos los detalles y el progreso completo de tu instalación en tu portal de cliente:</p>
+    <div style="text-align: center;">
+        <a href="{{ portal_url }}" class="button">Ver Progreso del Proyecto</a>
+    </div>
+
+    <div class="project-info">
+        <strong>Resumen de tu proyecto:</strong><br>
+        <strong>Proyecto:</strong> {{ project_title }}<br>
+        <strong>ID:</strong> {{ project_id }}<br>
+        <strong>Ubicación:</strong> {{ project_address }}
+    </div>
+{% endblock %}
+

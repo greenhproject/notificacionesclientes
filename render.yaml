@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: notificaciones-greenhproject
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --log-level info"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///data/notifications.db
+      - key: LOG_LEVEL
+        value: INFO
+      - key: OPENSOLAR_TOKEN
+        sync: false
+      - key: OPENSOLAR_ORG_ID
+        value: "80856"
+      - key: CLIENT_PORTAL_URL
+        value: "https://www.greenhproject.com/gestionproyectos"
