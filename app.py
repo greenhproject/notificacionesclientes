@@ -232,10 +232,14 @@ def opensolar_webhook():
             )
         
         # Enviar email usando Resend API
+        # NOTA: Por ahora enviamos a admin@greenhproject.com porque el dominio no está verificado en Resend
+        # El email del cliente original está en: client_data["email"]
+        admin_email = "admin@greenhproject.com"
+        
         try:
             success = resend_service.send_email_with_retry(
-                to_email=client_data["email"],
-                subject=email_content["subject"],
+                to_email=admin_email,  # Enviando a admin en lugar del cliente
+                subject=f"[Cliente: {client_data['email']}] {email_content['subject']}",  # Incluir email del cliente en el asunto
                 html_content=email_content["html"],
                 from_email="onboarding@resend.dev",
                 max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
@@ -331,9 +335,12 @@ def opensolar_webhook():
             continue
         
         # 5. Enviar email
+        # NOTA: Por ahora enviamos a admin@greenhproject.com porque el dominio no está verificado en Resend
+        admin_email = "admin@greenhproject.com"
+        
         success = resend_service.send_email_with_retry(
-            to_email=client_data["email"],
-            subject=email_content["subject"],
+            to_email=admin_email,  # Enviando a admin en lugar del cliente
+            subject=f"[Cliente: {client_data['email']}] {email_content['subject']}",  # Incluir email del cliente en el asunto
             html_content=email_content["html"],
             from_email="onboarding@resend.dev",
             max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
