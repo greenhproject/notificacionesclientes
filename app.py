@@ -248,6 +248,7 @@ def opensolar_webhook():
             temp_dir = "/tmp/emails_to_send"
             os.makedirs(temp_dir, exist_ok=True)
             
+            action_id = action_info["action"]["id"]
             email_filename = f"{temp_dir}/email_{project_id}_{action_id}.html"
             with open(email_filename, 'w', encoding='utf-8') as f:
                 f.write(email_content['html'])
