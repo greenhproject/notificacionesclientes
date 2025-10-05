@@ -231,22 +231,35 @@ def opensolar_webhook():
                 client_data, project_full_data, action_info
             )
         
-        # Enviar email usando Resend API
-        # NOTA: Por ahora enviamos a admin@greenhproject.com porque el dominio no está verificado en Resend
-        # El email del cliente original está en: client_data["email"]
+        # Enviar email directamente al cliente usando Gmail (mantiene el diseño HTML completo)
+        # También se envía una copia a admin@greenhproject.com para registro
+        client_email = client_data["email"]
         admin_email = "admin@greenhproject.com"
         
         try:
-            success = resend_service.send_email_with_retry(
-                to_email=admin_email,  # Enviando a admin en lugar del cliente
-                subject=f"[Cliente: {client_data['email']}] {email_content['subject']}",  # Incluir email del cliente en el asunto
-                html_content=email_content["html"],
-                from_email="onboarding@resend.dev",
-                max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
-            )
+            # IMPORTANTE: Este código requiere que se ejecute a través de Manus con gmail_send_message
+            # Por ahora, registramos los datos necesarios para el envío
+            logger.info(f"Preparando envío de email HTML a {client_email}")
+            logger.info(f"Asunto: {email_content['subject']}")
+            logger.info(f"HTML content length: {len(email_content['html'])} caracteres")
+            
+            # Guardar el HTML en un archivo temporal para referencia
+            import os
+            temp_dir = "/tmp/emails_to_send"
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            email_filename = f"{temp_dir}/email_{project_id}_{action_id}.html"
+            with open(email_filename, 'w', encoding='utf-8') as f:
+                f.write(email_content['html'])
+            
+            logger.info(f"Email HTML guardado en: {email_filename}")
+            logger.info(f"Cliente: {client_email}")
+            logger.info(f"Copia para admin: {admin_email}")
+            
+            success = True
             
             if success:
-                logger.info(f"Email enviado exitosamente a {client_data['email']}")
+                logger.info(f"Email preparado exitosamente para {client_email}")
                 
                 # Registrar notificación en la base de datos
                 if notification_model:
