@@ -360,7 +360,7 @@ def opensolar_webhook():
         
         success = resend_service.send_email_with_retry(
             to_email=admin_email,  # Enviando a admin en lugar del cliente
-            subject=f"[Cliente: {client_data['email']}] {email_content['subject']}",  # Incluir email del cliente en el asunto
+            subject=f"[Cliente: {client_data.get('full_name', client_data['email'])}] {email_content['subject']}",  # Incluir nombre del cliente en el asunto
             html_content=email_content["html"],
             from_email="onboarding@resend.dev",
             max_retries=config.NOTIFICATION_RETRY_ATTEMPTS
