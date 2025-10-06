@@ -257,8 +257,8 @@ def opensolar_webhook():
             logger.info(f"Cliente: {client_email}")
             logger.info(f"Copia para admin: {admin_email}")
             
-            # Enviar correo a admin@greenhproject.com con formato [Cliente: email] en el asunto
-            admin_subject = f"[Cliente: {client_email}] {email_content['subject']}"
+            # Enviar correo a admin@greenhproject.com con formato [Cliente: Nombre] en el asunto
+            admin_subject = f"[Cliente: {client_data['full_name']}] {email_content['subject']}"
             success = resend_service.send_email_with_retry(
                 to_email=admin_email,
                 subject=admin_subject,
