@@ -157,11 +157,16 @@ class OpenSolarService:
         # Tomar el primer contacto como cliente principal
         client = contacts_data[0]
         
+        first_name = client.get('first_name', '')
+        family_name = client.get('family_name', '')
+        full_name = f"{first_name} {family_name}".strip()
+        
         return {
             'email': client.get('email', ''),
-            'first_name': client.get('first_name', ''),
-            'family_name': client.get('family_name', ''),
-            'full_name': f"{client.get('first_name', '')} {client.get('family_name', '')}".strip(),
+            'first_name': first_name,
+            'family_name': family_name,
+            'full_name': full_name,
+            'name': first_name if first_name else full_name,  # Usar primer nombre o nombre completo
             'phone': client.get('phone', ''),
             'display': client.get('display', '')
         }
