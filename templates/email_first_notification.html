@@ -17,31 +17,13 @@
     <div class="credentials-box">
         <h3>Acceso a tu Portal de Cliente</h3>
         <p>Hemos creado un portal exclusivo para que puedas seguir cada paso de tu proyecto. Para acceder, necesitarás el siguiente ID:</p>
-        <div class="id-container">
-            <span class="project-id" id="projectId">{{ project_id }}</span>
-            <button class="copy-button" onclick="copyToClipboard()">📋 Copiar ID</button>
+        <div style="text-align: center; margin: 20px 0;">
+            <div class="project-id">{{ project_id }}</div>
+            <p style="font-size: 13px; color: #666; margin-top: 10px;">👆 Mantén presionado sobre el ID para seleccionarlo y copiarlo</p>
         </div>
         <a href="{{ portal_url }}" class="button">Ir al Portal de Cliente</a>
-        <p style="font-size: 14px; margin-top: 15px;"><strong>Instrucciones:</strong><br>1. Copia tu ID de proyecto haciendo clic en el botón "Copiar ID"<br>2. Haz clic en "Ir al Portal de Cliente"<br>3. Ingresa tu ID para ver todos los detalles</p>
+        <p style="font-size: 14px; margin-top: 15px;"><strong>Instrucciones:</strong><br>1. Mantén presionado sobre el ID de arriba para seleccionarlo<br>2. Copia el ID seleccionado<br>3. Haz clic en "Ir al Portal de Cliente"<br>4. Pega tu ID para ver todos los detalles</p>
     </div>
-    
-    <script>
-    function copyToClipboard() {
-        const text = document.getElementById('projectId').innerText;
-        navigator.clipboard.writeText(text).then(function() {
-            alert('ID copiado: ' + text);
-        }, function() {
-            // Fallback para navegadores antiguos
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            alert('ID copiado: ' + text);
-        });
-    }
-    </script>
 
     <h3>Próximos Pasos</h3>
     <p>{{ next_steps }}</p>
